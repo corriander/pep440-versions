@@ -62,8 +62,7 @@ stages:
 
     - script: |
         poetry add pytest-azurepipelines
-        # Disable coverage HTML as it's a bit janky in az pipeline theme. Can address this later.
-        poetry run pytest --cov=pep440_version_utils --cov-report=xml # --cov-report=html
+        poetry run pytest --cov=pep440_version_utils --cov-report=xml
       displayName: 'Test Package'
 
   - job: job_build
