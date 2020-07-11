@@ -42,6 +42,9 @@ variables:
 - name: default_feed_is_set
   value: and( not(startsWith( coalesce( variables['default_feed'], '-' ) , '$')), ne(coalesce( variables['default_feed'], '-' ), '-') )
   readonly: true
+- name: run_stage_release
+  value: and( or( ${{ variables.is_stable_branch }},  ${{ variables.run_stage_release }} ), or( ${{ variables.target_release_feed_is_set }}, ${{ variables.default_feed_is_set }} ) )
+  readonly: true
 
 stages:
 - stage: stage_test_build
@@ -120,7 +123,9 @@ stages:
 
 - stage: stage_release
   displayName: Release
-  condition: and( or( ${{ variables.is_stable_branch }},  ${{ variables.run_stage_release }} ), or( ${{ variables.target_release_feed_is_set }}, ${{ variables.default_feed_is_set }} ) )
+  # A naked boolean works here, but a more complex condition is not
+  # evaluated in time.
+  condition: variables['run_stage_release']
   variables:
     python.version: ${{ parameters.python_reference_version }}
     package.feed: ${{ parameters.target_release_feed }}
