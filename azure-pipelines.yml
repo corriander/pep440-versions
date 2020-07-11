@@ -7,6 +7,14 @@ trigger:
 - master
 
 parameters:
+- name: run_stage_release
+  displayName: Release Build Artifact(s)
+  type: boolean
+  default: false
+- name: target_release_feed
+  displayName: Target Azure Artifacts Feed
+  type: string
+  default: '$(System.TeamProject)/test-releases'
 - name: python_reference_version
   displayName: Reference Python Version
   type: string
@@ -15,6 +23,13 @@ parameters:
   - '3.6'
   - '3.7'
 
+variables:
+- name: is_stable_branch
+  value: eq( '${{ variables['Build.SourceBranch'] }}' , 'refs/heads/master' )
+  readonly: true
+- name: dist_artifact_name
+  value: 'drop'
+  readonly: true
 
 stages:
 - stage: stage_test_build
@@ -55,10 +70,9 @@ stages:
     displayName: Build Distributable Package
     dependsOn: job_test
     variables:
-    - name: python.version
-      value: ${{ parameters.python_reference_version }}
-    steps:
+      python.version: ${{ parameters.python_reference_version }}
 
+    steps:
     # TODO: Template these steps
     - task: UsePythonVersion@0
       inputs:
@@ -87,6 +101,37 @@ stages:
       displayName: Publish Artefacts
       inputs:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
+        ArtifactName: ${{ variables.dist_artifact_name }}
         publishLocation: 'Container'
 
+
+- stage: stage_release
+  displayName: Release
+  condition: or( ${{ variables.is_stable_branch }},  eq( '${{ parameters.run_stage_release }}', true) )
+  variables:
+    python.version: ${{ parameters.python_reference_version }}
+    package.feed: ${{ parameters.target_release_feed }}
+  jobs:
+  - job: job_release
+    displayName: Release Package
+    steps:
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: '${{ variables.dist_artifact_name }}'
+
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+      displayName: 'Use Python $(python.version)'
+
+    - task: TwineAuthenticate@0
+      inputs:
+        artifactFeeds: $(package.feed)
+
+    - bash: |
+        python -m pip install twine
+        twine upload -r "$(package.feed)" --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/${{ variables.dist_artifact_name }}/*
+      displayName: Upload Package
