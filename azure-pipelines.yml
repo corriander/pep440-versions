@@ -6,32 +6,87 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
-strategy:
-  matrix:
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
+parameters:
+- name: python_reference_version
+  displayName: Reference Python Version
+  type: string
+  default: '3.7'
+  values:
+  - '3.6'
+  - '3.7'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
 
-- bash: |
-    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-    echo "##vso[task.prependpath]$HOME/.poetry/bin"
-    source $HOME/.poetry/env
-    echo "##[debug]Poetry version: $(poetry --version)"
-    poetry install
-  displayName: 'Install Poetry + Dependencies'
+stages:
+- stage: stage_test_build
+  displayName: Test & Build
+  jobs:
+  - job: job_test
+    displayName: Test Package
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      matrix:
+        # Derive these from the allowable versions?
+        Python36:
+          python.version: '3.6'
+        Python37:
+          python.version: '3.7'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+      displayName: 'Use Python $(python.version)'
 
-- script: |
-    poetry add pytest-azurepipelines
-    # Disable coverage HTML as it's a bit janky in az pipeline theme. Can address this later.
-    poetry run pytest --cov=pep440_version_utils --cov-report=xml # --cov-report=html
-  displayName: 'Test Package'
+    - bash: |
+        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+        echo "##vso[task.prependpath]$HOME/.poetry/bin"
+        source $HOME/.poetry/env
+        echo "##[debug]Poetry version: $(poetry --version)"
+        poetry install
+      displayName: 'Install Poetry + Deps'
+
+    - script: |
+        poetry add pytest-azurepipelines
+        # Disable coverage HTML as it's a bit janky in az pipeline theme. Can address this later.
+        poetry run pytest --cov=pep440_version_utils --cov-report=xml # --cov-report=html
+      displayName: 'Test Package'
+
+  - job: job_build
+    displayName: Build Distributable Package
+    dependsOn: job_test
+    variables:
+    - name: python.version
+      value: ${{ parameters.python_reference_version }}
+    steps:
+
+    # TODO: Template these steps
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+      displayName: 'Use Python $(python.version)'
+
+    - bash: |
+        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+        echo "##vso[task.prependpath]$HOME/.poetry/bin"
+        source $HOME/.poetry/env
+        echo "##[debug]Poetry version: $(poetry --version)"
+        poetry install
+      displayName: 'Install Poetry + Dependencies'
+
+    - bash: poetry build
+      displayName: Poetry Build
+
+    - task: CopyFiles@2
+      displayName: Stage Build Artefacts
+      inputs:
+        SourceFolder: './dist'
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artefacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
 
