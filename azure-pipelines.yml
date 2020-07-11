@@ -14,7 +14,7 @@ parameters:
 - name: target_release_feed
   displayName: Target Azure Artifacts Feed
   type: string
-  default: '$(System.TeamProject)/test-releases'
+  default: 'Default'
 - name: python_reference_version
   displayName: Reference Python Version
   type: string
@@ -30,6 +30,17 @@ variables:
   readonly: true
 - name: dist_artifact_name
   value: 'drop'
+  readonly: true
+- name: run_stage_release
+  value: eq( ${{ parameters.run_stage_release }}, true )
+  readonly: true
+- name: default_feed
+  value: $(DefaultFeed)
+- name: target_release_feed_is_set
+  value: ne('${{ parameters.target_release_feed }}', 'Default')
+  readonly: true
+- name: default_feed_is_set
+  value: and( not(startsWith( coalesce( variables['default_feed'], '-' ) , '$')), ne(coalesce( variables['default_feed'], '-' ), '-') )
   readonly: true
 
 stages:
@@ -109,7 +120,7 @@ stages:
 
 - stage: stage_release
   displayName: Release
-  condition: or( ${{ variables.is_stable_branch }},  eq( '${{ parameters.run_stage_release }}', true) )
+  condition: and( or( ${{ variables.is_stable_branch }},  ${{ variables.run_stage_release }} ), or( ${{ variables.target_release_feed_is_set }}, ${{ variables.default_feed_is_set }} ) )
   variables:
     python.version: ${{ parameters.python_reference_version }}
     package.feed: ${{ parameters.target_release_feed }}
@@ -117,6 +128,13 @@ stages:
   - job: job_release
     displayName: Release Package
     steps:
+
+    # Fall back on the default feed if one was not provided via the runtime
+    # parameter
+    - bash:
+        echo "##vso[task.setvariable variable=package.feed]${DEFAULT_FEED}"
+      displayName: Use Default Azure Artifacts Feed
+      condition: not( ${{ variables.target_release_feed_is_set }} )
 
     - task: DownloadBuildArtifacts@0
       inputs:
