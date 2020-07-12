@@ -2,7 +2,7 @@ from copy import copy
 
 import pytest
 
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 test_versions_for_copy = [
     "1.0.0",
