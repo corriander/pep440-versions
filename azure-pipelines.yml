@@ -58,7 +58,7 @@ jobs:
 
   - script: |
       poetry add pytest-azurepipelines
-      poetry run pytest --cov=pep440_version_utils --cov-report=xml
+      poetry run pytest --cov=pep440_versions --cov-report=xml
     displayName: 'Test Package'
 
 
