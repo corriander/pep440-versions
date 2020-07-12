@@ -138,14 +138,10 @@ jobs:
     displayName: 'Use Python $(python.version)'
     inputs:
       versionSpec: '$(python.version)'
-
+  
   - bash: |
-      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-      echo "##vso[task.prependpath]$HOME/.poetry/bin"
-      source $HOME/.poetry/env
-      echo "##[debug]Poetry version: $(poetry --version)"
-      poetry install
-    displayName: 'Install Poetry, Package + Deps'
+      python -m pip install ${SYSTEM_ARTIFACTSDIRECTORY}/${ARTIFACT_NAME}/*.tar.gz
+    displayName: Install Self  
 
   - task: PythonScript@0
     displayName: Validate Version Tag
