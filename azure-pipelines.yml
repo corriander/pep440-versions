@@ -4,7 +4,12 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 trigger:
-- master
+  branches:
+    include:
+      - master
+  tags:
+    include:
+      - '*'
 
 parameters:
 - name: run_release
@@ -27,6 +32,11 @@ variables:
 - name: artifact_feed
   value: $(AzureArtifactsFeed)
 
+  # Derived variables
+- name: is_stable_branch_ref
+  value: eq( '${{ variables['Build.SourceBranch'] }}' , 'refs/heads/master' )
+- name: is_tag_ref
+  value: startsWith( '${{ variables['Build.SourceBranch'] }}', 'refs/tags/' )
 
 jobs:
 - job: job_test
@@ -54,7 +64,7 @@ jobs:
       source $HOME/.poetry/env
       echo "##[debug]Poetry version: $(poetry --version)"
       poetry install
-    displayName: 'Install Poetry + Deps'
+    displayName: 'Install Poetry, Package + Deps'
 
   - script: |
       poetry add pytest-azurepipelines
@@ -81,7 +91,7 @@ jobs:
       source $HOME/.poetry/env
       echo "##[debug]Poetry version: $(poetry --version)"
       poetry install
-    displayName: 'Install Poetry + Dependencies'
+    displayName: 'Install Poetry, Package + Deps'
 
   - bash: poetry build
     displayName: Poetry Build
@@ -104,7 +114,8 @@ jobs:
 - job: job_release
   displayName: Release Build Artifact
   dependsOn: job_build
-  condition: ${{ parameters['run_release'] }}
+  # Run job if requested, or it's triggered from stable (master), or it's triggered from a tag push.
+  condition: or( ${{ parameters['run_release'] }}, ${{ variables['is_stable_branch_ref'] }}, ${{ variables['is_tag_ref'] }} )
   pool:
     vmImage: 'ubuntu-latest'
   variables:
@@ -127,6 +138,44 @@ jobs:
     displayName: 'Use Python $(python.version)'
     inputs:
       versionSpec: '$(python.version)'
+  
+  - bash: |
+      python -m pip install ${SYSTEM_ARTIFACTSDIRECTORY}/${ARTIFACT_NAME}/*.tar.gz
+    displayName: Install Self  
+
+  - task: PythonScript@0
+    displayName: Validate Version Tag
+    # Only validate if we're building from a tag; assume user knows what they're doing otherwise.
+    condition: ${{ variables['is_tag_ref'] }}
+    continueOnError: false
+    inputs:
+      scriptSource: 'inline'
+      arguments: $(Build.SourceBranch)
+      script: |
+        import sys
+        from configparser import ConfigParser
+        from pep440_versions import Version
+        from pep440_versions.utils import InvalidVersion
+
+        gitref = sys.argv[1]
+        tag = gitref.replace('refs/tags/', '')
+        try:
+            v = Version(tag)
+        except InvalidVersion:
+            print(f"##vso[task.logissue type=error]'{tag}' is not a PEP440 compliant tag.")
+            sys.exit(1)
+        else:
+            v_str = str(v)
+            if v_str != tag:
+                print(f"##vso[task.logissue type=error]Version tag '{tag}' is not normalised ('{v_str}'); fix it up.")
+                sys.exit(1)
+            parser = ConfigParser()
+            parser.read('pyproject.toml')
+            v_str_pkg = parser.get(section='tool.poetry', option='version').strip('"')
+            if tag != v_str_pkg:
+                print(f"##vso[task.logissue type=error]Version tag '{tag}' does not match packaging version '{v_str_pkg}'; fix it up.")
+                sys.exit(1)
+        sys.exit(0)
 
   - script: |
       python -m pip install twine
