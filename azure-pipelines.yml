@@ -171,7 +171,7 @@ jobs:
                 sys.exit(1)
             parser = ConfigParser()
             parser.read('pyproject.toml')
-            v_str_pkg = parser.get(section='poetry.tool', option='version').strip('"')
+            v_str_pkg = parser.get(section='tool.poetry', option='version').strip('"')
             if tag != v_str_pkg:
                 print(f"##vso[task.logissue type=error]Version tag '{tag}' does not match packaging version ('{v_str_pkg}'); fix it up.")
                 sys.exit(1)
