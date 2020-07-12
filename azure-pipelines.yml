@@ -155,7 +155,7 @@ jobs:
         import sys
         from configparser import ConfigParser
         from pep440_versions import Version
-        from pep440_versions.util import InvalidVersion
+        from pep440_versions.utils import InvalidVersion
 
         gitref = sys.argv[1]
         tag = gitref.replace('refs/tags/', '')
