@@ -1,7 +1,7 @@
-![Continuous Integration](https://github.com/m-vdb/pep440-version-utils/workflows/Continuous%20Integration/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/m-vdb/pep440-version-utils/badge.svg?branch=master)](https://coveralls.io/github/m-vdb/pep440-version-utils?branch=master)
+# pep440-versions
 
-# pep440-version-utils
+> Temporary, independently versioned fork of (https://github.com/m-vdb/pep440-version-utils)
+
 This package regroups utilities to deal with pep440 versioning. It is based on the
 [PyPA's `packaging`](https://github.com/pypa/packaging) project and extends it.
 
