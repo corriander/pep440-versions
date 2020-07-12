@@ -7,14 +7,10 @@ trigger:
 - master
 
 parameters:
-- name: run_stage_release
+- name: run_release
   displayName: Release Build Artifact(s)
   type: boolean
   default: false
-- name: target_release_feed
-  displayName: Target Azure Artifacts Feed
-  type: string
-  default: 'Default'
 - name: python_reference_version
   displayName: Reference Python Version
   type: string
@@ -25,138 +21,114 @@ parameters:
   - '3.8'
 
 variables:
-- name: is_stable_branch
-  value: eq( '${{ variables['Build.SourceBranch'] }}' , 'refs/heads/master' )
-  readonly: true
-- name: dist_artifact_name
+  # Configuration (set artifact feed name in runtime vars)
+- name: artifact_name
   value: 'drop'
-  readonly: true
-- name: run_stage_release
-  value: eq( ${{ parameters.run_stage_release }}, true )
-  readonly: true
-- name: default_feed
-  value: $(DefaultFeed)
-- name: target_release_feed_is_set
-  value: ne('${{ parameters.target_release_feed }}', 'Default')
-  readonly: true
-- name: default_feed_is_set
-  value: and( not(startsWith( coalesce( variables['default_feed'], '-' ) , '$')), ne(coalesce( variables['default_feed'], '-' ), '-') )
-  readonly: true
-- name: run_stage_release
-  value: and( or( ${{ variables.is_stable_branch }},  ${{ variables.run_stage_release }} ), or( ${{ variables.target_release_feed_is_set }}, ${{ variables.default_feed_is_set }} ) )
-  readonly: true
-
-stages:
-- stage: stage_test_build
-  displayName: Test & Build
-  jobs:
-  - job: job_test
-    displayName: Test Package
-    pool:
-      vmImage: 'ubuntu-latest'
-    strategy:
-      matrix:
-        # Derive these from the allowable versions?
-        Python36:
-          python.version: '3.6'
-        Python37:
-          python.version: '3.7'
-        Python38:
-          python.version: '3.8'
-    steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(python.version)'
-      displayName: 'Use Python $(python.version)'
-
-    - bash: |
-        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-        echo "##vso[task.prependpath]$HOME/.poetry/bin"
-        source $HOME/.poetry/env
-        echo "##[debug]Poetry version: $(poetry --version)"
-        poetry install
-      displayName: 'Install Poetry + Deps'
-
-    - script: |
-        poetry add pytest-azurepipelines
-        poetry run pytest --cov=pep440_version_utils --cov-report=xml
-      displayName: 'Test Package'
-
-  - job: job_build
-    displayName: Build Distributable Package
-    dependsOn: job_test
-    variables:
-      python.version: ${{ parameters.python_reference_version }}
-
-    steps:
-    # TODO: Template these steps
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(python.version)'
-      displayName: 'Use Python $(python.version)'
-
-    - bash: |
-        curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-        echo "##vso[task.prependpath]$HOME/.poetry/bin"
-        source $HOME/.poetry/env
-        echo "##[debug]Poetry version: $(poetry --version)"
-        poetry install
-      displayName: 'Install Poetry + Dependencies'
-
-    - bash: poetry build
-      displayName: Poetry Build
-
-    - task: CopyFiles@2
-      displayName: Stage Build Artefacts
-      inputs:
-        SourceFolder: './dist'
-        Contents: '**'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-    - task: PublishBuildArtifacts@1
-      displayName: Publish Artefacts
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: ${{ variables.dist_artifact_name }}
-        publishLocation: 'Container'
+- name: artifact_feed
+  value: $(AzureArtifactsFeed)
 
 
-- stage: stage_release
-  displayName: Release
-  # A naked boolean works here, but a more complex condition is not
-  # evaluated in time.
-  condition: variables['run_stage_release']
+jobs:
+- job: job_test
+  displayName: Test Package
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    matrix:
+      # Derive these from the allowable versions?
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+      Python38:
+        python.version: '3.8'
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+    displayName: 'Use Python $(python.version)'
+
+  - bash: |
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      echo "##vso[task.prependpath]$HOME/.poetry/bin"
+      source $HOME/.poetry/env
+      echo "##[debug]Poetry version: $(poetry --version)"
+      poetry install
+    displayName: 'Install Poetry + Deps'
+
+  - script: |
+      poetry add pytest-azurepipelines
+      poetry run pytest --cov=pep440_version_utils --cov-report=xml
+    displayName: 'Test Package'
+
+
+- job: job_build
+  displayName: Build Distributable Package
+  dependsOn: job_test
   variables:
     python.version: ${{ parameters.python_reference_version }}
-    package.feed: ${{ parameters.target_release_feed }}
-  jobs:
-  - job: job_release
-    displayName: Release Package
-    steps:
 
-    # Fall back on the default feed if one was not provided via the runtime
-    # parameter
-    - bash:
-        echo "##vso[task.setvariable variable=package.feed]${DEFAULT_FEED}"
-      displayName: Use Default Azure Artifacts Feed
-      condition: not( ${{ variables.target_release_feed_is_set }} )
+  steps:
+  # TODO: Template these steps
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+    displayName: 'Use Python $(python.version)'
 
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        artifactName: '${{ variables.dist_artifact_name }}'
+  - bash: |
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      echo "##vso[task.prependpath]$HOME/.poetry/bin"
+      source $HOME/.poetry/env
+      echo "##[debug]Poetry version: $(poetry --version)"
+      poetry install
+    displayName: 'Install Poetry + Dependencies'
 
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '$(python.version)'
-      displayName: 'Use Python $(python.version)'
+  - bash: poetry build
+    displayName: Poetry Build
 
-    - task: TwineAuthenticate@0
-      inputs:
-        artifactFeeds: $(package.feed)
+  - task: CopyFiles@2
+    displayName: 'Copy package to artifact staging'
+    inputs:
+      SourceFolder: 'dist'
+      Contents: '**'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      CleanTargetFolder: true
 
-    - bash: |
-        python -m pip install twine
-        twine upload -r "$(package.feed)" --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/${{ variables.dist_artifact_name }}/*
-      displayName: Upload Package
+  - task: PublishBuildArtifacts@1
+    displayName: 'Create artifact drop'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: '${{ variables.artifact_name }}'
+
+
+- job: job_release
+  displayName: Release Build Artifact
+  dependsOn: job_build
+  condition: ${{ parameters['run_release'] }}
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    python.version: ${{ parameters.python_reference_version }}
+  steps:
+  - task: TwineAuthenticate@0
+    displayName: Configure Auth for Feed
+    inputs:
+      artifactFeeds: $(artifact_feed)
+
+  - task: DownloadBuildArtifacts@0
+    displayName: Download Artifacts
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      artifactName: '${{ variables.artifact_name }}'
+      downloadPath: '$(System.ArtifactsDirectory)'
+
+  - task: UsePythonVersion@0
+    displayName: 'Use Python $(python.version)'
+    inputs:
+      versionSpec: '$(python.version)'
+
+  - script: |
+      python -m pip install twine
+      twine upload -r '$(artifact_feed)' --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/${{ variables.artifact_name }}/*
+    displayName: Upload Artifact
