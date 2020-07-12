@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "pep440-version-utils"
-version = "0.3.0"
-description = "Utilities to deal with pep440 versioning"
-authors = ["Maxime Verger <me@maxvdb.com>"]
+name = "pep440-versions"
+version = "0.1.0"
+description = "Utilities to deal with pep440 versioning (fork of pep440-version-utils)"
+authors = ["Maxime Verger <me@maxvdb.com>", "Alex Corrie <ajccode@gmail.com>"]
 license = "MIT"
-maintainers = ["Maxime Verger <me@maxvdb.com>"]
+maintainers = ["Alex Corrie <ajccode@gmail.com>"]
 readme = "README.md"
-homepage = "https://github.com/m-vdb/pep440-version-utils"
-repository = "https://github.com/m-vdb/pep440-version-utils"
+homepage = "https://github.com/corriander/pep440-versions"
+repository = "https://github.com/corriander/pep440-versions"
 keywords = ["pep440", "version"]
 classifiers = ["Development Status :: 4 - Beta", "Intended Audience :: Developers", "License :: OSI Approved :: MIT License", "Programming Language :: Python", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8"]
 

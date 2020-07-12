@@ -1,0 +1,134 @@
+# Python package
+# Create and test a Python package on multiple Python versions.
+# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/python
+
+trigger:
+- master
+
+parameters:
+- name: run_release
+  displayName: Release Build Artifact(s)
+  type: boolean
+  default: false
+- name: python_reference_version
+  displayName: Reference Python Version
+  type: string
+  default: '3.7'
+  values:
+  - '3.6'
+  - '3.7'
+  - '3.8'
+
+variables:
+  # Configuration (set artifact feed name in runtime vars)
+- name: artifact_name
+  value: 'drop'
+- name: artifact_feed
+  value: $(AzureArtifactsFeed)
+
+
+jobs:
+- job: job_test
+  displayName: Test Package
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    matrix:
+      # Derive these from the allowable versions?
+      Python36:
+        python.version: '3.6'
+      Python37:
+        python.version: '3.7'
+      Python38:
+        python.version: '3.8'
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+    displayName: 'Use Python $(python.version)'
+
+  - bash: |
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      echo "##vso[task.prependpath]$HOME/.poetry/bin"
+      source $HOME/.poetry/env
+      echo "##[debug]Poetry version: $(poetry --version)"
+      poetry install
+    displayName: 'Install Poetry + Deps'
+
+  - script: |
+      poetry add pytest-azurepipelines
+      poetry run pytest --cov=pep440_versions --cov-report=xml
+    displayName: 'Test Package'
+
+
+- job: job_build
+  displayName: Build Distributable Package
+  dependsOn: job_test
+  variables:
+    python.version: ${{ parameters.python_reference_version }}
+
+  steps:
+  # TODO: Template these steps
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+    displayName: 'Use Python $(python.version)'
+
+  - bash: |
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      echo "##vso[task.prependpath]$HOME/.poetry/bin"
+      source $HOME/.poetry/env
+      echo "##[debug]Poetry version: $(poetry --version)"
+      poetry install
+    displayName: 'Install Poetry + Dependencies'
+
+  - bash: poetry build
+    displayName: Poetry Build
+
+  - task: CopyFiles@2
+    displayName: 'Copy package to artifact staging'
+    inputs:
+      SourceFolder: 'dist'
+      Contents: '**'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      CleanTargetFolder: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Create artifact drop'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: '${{ variables.artifact_name }}'
+
+
+- job: job_release
+  displayName: Release Build Artifact
+  dependsOn: job_build
+  condition: ${{ parameters['run_release'] }}
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    python.version: ${{ parameters.python_reference_version }}
+  steps:
+  - task: TwineAuthenticate@0
+    displayName: Configure Auth for Feed
+    inputs:
+      artifactFeeds: $(artifact_feed)
+
+  - task: DownloadBuildArtifacts@0
+    displayName: Download Artifacts
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      artifactName: '${{ variables.artifact_name }}'
+      downloadPath: '$(System.ArtifactsDirectory)'
+
+  - task: UsePythonVersion@0
+    displayName: 'Use Python $(python.version)'
+    inputs:
+      versionSpec: '$(python.version)'
+
+  - script: |
+      python -m pip install twine
+      twine upload -r '$(artifact_feed)' --config-file $(PYPIRC_PATH) $(System.ArtifactsDirectory)/${{ variables.artifact_name }}/*
+    displayName: Upload Artifact
