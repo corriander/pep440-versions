@@ -64,7 +64,7 @@ jobs:
       source $HOME/.poetry/env
       echo "##[debug]Poetry version: $(poetry --version)"
       poetry install
-    displayName: 'Install Poetry + Deps'
+    displayName: 'Install Poetry, Package + Deps'
 
   - script: |
       poetry add pytest-azurepipelines
@@ -91,7 +91,7 @@ jobs:
       source $HOME/.poetry/env
       echo "##[debug]Poetry version: $(poetry --version)"
       poetry install
-    displayName: 'Install Poetry + Dependencies'
+    displayName: 'Install Poetry, Package + Deps'
 
   - bash: poetry build
     displayName: Poetry Build
@@ -140,8 +140,12 @@ jobs:
       versionSpec: '$(python.version)'
 
   - bash: |
-      python -m pip install -e .
-    displayName: Install Self
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      echo "##vso[task.prependpath]$HOME/.poetry/bin"
+      source $HOME/.poetry/env
+      echo "##[debug]Poetry version: $(poetry --version)"
+      poetry install
+    displayName: 'Install Poetry, Package + Deps'
 
   - task: PythonScript@0
     displayName: Validate Version Tag
