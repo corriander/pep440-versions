@@ -1,6 +1,6 @@
 import pytest
 
-from pep440_version_utils import is_valid_version
+from pep440_versions import is_valid_version
 
 test_versions = (
     ("0.9", True),

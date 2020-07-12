@@ -7,17 +7,23 @@ This package regroups utilities to deal with pep440 versioning. It is based on t
 
 It makes it easier to handle version bumps and strictly follows [PEP440 specification](https://www.python.org/dev/peps/pep-0440/).
 
-![Release cycle](https://github.com/m-vdb/pep440-version-utils/blob/master/docs/release-cycle.png?raw=true)
+![Release cycle](https://github.com/corriander/pep440-versions/blob/master/docs/release-cycle.png?raw=true)
 
 ## Installation
 
 Use `pip` or `poetry` to install this package:
 
+> You need to ensure the following is configred in `pip.conf` /
+> `pip.ini`:
+
+    [global]
+    extra-index-url=https://pkgs.dev.azure.com/corriander/github-public/_packaging/github-releases/pypi/simple/
+
 ```bash
-$ pip install pep440-version-utils
+$ pip install pep440-versions
 
 # or alternatively
-$ poetry add pep440-version-utils
+$ poetry add pep440-versions
 ```
 
 ## Usage
@@ -28,7 +34,7 @@ in [this documentation](https://packaging.pypa.io/en/latest/version/).
 To bump to a new release version:
 
 ```python
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 version = Version("1.10.2")
 version.next_micro()  # 1.10.3
@@ -39,7 +45,7 @@ version.next_major()  # 2.0.0
 To bump to a new developmental or prerelease version:
 
 ```python
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 version = Version("1.10.2")
 version.next_alpha()  # 1.10.3a1
@@ -56,7 +62,7 @@ version.next_dev("major")  # 2.0.0.dev1
 And it implements the full release cycle:
 
 ```python
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 version = Version("1.10.2")
 alpha1 = version.next_alpha()  # 1.10.3a1
@@ -71,7 +77,7 @@ Complete with support for developmental versions, including within
 prerelease phases:
 
 ```python
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 version = Version("1.10.2")
 dev1 = version.next_dev()  # 1.10.3.dev1
@@ -86,7 +92,7 @@ new_version = rc2.next_micro()  # 1.10.3
 You can also check if a version is a specific type of prerelease:
 
 ```python
-from pep440_version_utils import Version
+from pep440_versions import Version
 
 Version("1.10.2a1").is_alpha  # True
 Version("1.10.2b2").is_beta  # True
@@ -108,7 +114,7 @@ This package is fairly simple, here is how you can contribute:
 ```bash
 $ poetry run black . --check
 $ poetry run mypy */**.py --ignore-missing-imports
-$ poetry run pytest --cov=pep440_version_utils
+$ poetry run pytest --cov=pep440_versions
 ```
 5. ➡️ Submit a new pull request
 
