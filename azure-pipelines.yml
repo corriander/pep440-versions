@@ -160,7 +160,7 @@ jobs:
         gitref = sys.argv[1]
         tag = gitref.replace('refs/tags/', '')
         try:
-            v = Version(version_str)
+            v = Version(tag)
         except InvalidVersion:
             print(f"##vso[task.logissue type=error]'{tag}' is not a PEP440 compliant tag.")
             sys.exit(1)
