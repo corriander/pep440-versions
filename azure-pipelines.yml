@@ -179,7 +179,6 @@ jobs:
             if tag != v_str_pkg:
                 print(f"##vso[task.logissue type=error]Version tag '{tag}' does not match packaging version ('{v_str_pkg}'); fix it up.")
                 sys.exit(1)
-        Looks good.
         sys.exit(0)
 
   - script: |
